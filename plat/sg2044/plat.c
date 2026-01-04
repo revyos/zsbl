@@ -321,7 +321,7 @@ static void show_config(struct config *cfg)
 	pr_info("\n");
 }
 
-#define USE_LINUX_BOOT
+/* #define USE_LINUX_BOOT */
 
 extern unsigned long __ld_program_start[0];
 
