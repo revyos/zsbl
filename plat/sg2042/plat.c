@@ -24,7 +24,7 @@
 #define DEVICETREE_OVERLAY_ADDR		0x28000000
 #define RAMFS_ADDR			0x30000000
 
-#define USE_LINUX_BOOT 1
+/* #define USE_LINUX_BOOT 1 */
 
 static void __attribute__((unused)) print_core_ctrlreg(void)
 {
@@ -231,9 +231,9 @@ static void config_init(struct config *cfg)
 	cfg->ramfs.name = "initrd.img";
 	cfg->ramfs.addr = RAMFS_ADDR;
 #else
-	cfg->dtbo.name = "mango-sophgo-pisces.dtbo";
-	cfg->dtbo.addr = DEVICETREE_OVERLAY_ADDR;
-	cfg->kernel.name = "SRA1-20.fd";
+	cfg->dtbo.name = NULL;
+	cfg->dtbo.addr = 0;
+	cfg->kernel.name = "SG2042.fd";
 	cfg->ramfs.name = NULL;
 	cfg->ramfs.addr = RAMFS_ADDR;
 #endif
@@ -300,9 +300,9 @@ static void build_board_info(struct config *cfg)
 
 	if (cfg->board_type >= BOARD_TYPE_MIN && cfg->board_type <= BOARD_TYPE_MAX) {
 		cfg->dtb.name = (char *)dtb_names[cfg->board_type - BOARD_TYPE_MIN];
-#ifndef USE_LINUX_BOOT
+/* #ifndef USE_LINUX_BOOT
 		cfg->kernel.name = (char *)kernel_names[cfg->board_type - BOARD_TYPE_MIN];
-#endif
+#endif */
 	} else {
 		pr_err("Can not find device tree\n");
 	}
@@ -553,6 +553,8 @@ static void modify_dtb(struct config *cfg)
 	modify_ddr_node(cfg);
 #ifdef USE_LINUX_BOOT
 	modify_bootargs(cfg);
+#else
+	(void)(modify_bootargs);
 #endif
 
 	modify_cpu_node(cfg);
