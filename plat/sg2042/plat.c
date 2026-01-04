@@ -24,6 +24,7 @@
 #define DEVICETREE_OVERLAY_ADDR		0x28000000
 #define RAMFS_ADDR			0x30000000
 
+#define USE_LINUX_BOOT 1
 
 static void __attribute__((unused)) print_core_ctrlreg(void)
 {
@@ -220,7 +221,7 @@ static void config_init(struct config *cfg)
 {
 	cfg->sbi.name = "fw_dynamic.bin";
 	cfg->sbi.addr = OPENSBI_ADDR;
-	cfg->dtb.name = NULL;
+	cfg->dtb.name = "sg2042-milkv-pioneer.dtb";
 	cfg->dtb.addr = DEVICETREE_ADDR;
 
 #ifdef USE_LINUX_BOOT
@@ -273,10 +274,10 @@ static int build_ddr_info(struct config *cfg, int chip_num)
 }
 
 const char *dtb_names[] = {
-	"mango-sophgo-x8evb.dtb",
-	"mango-milkv-pioneer.dtb",
-	"mango-sophgo-pisces.dtb",
-	"mango-sophgo-x4evb.dtb",
+	"sg2042-evb-v1.dtb",
+	"sg2042-milkv-pioneer.dtb",
+	"sg2042-sophgo-pisces.dtb",
+	"sg2042-evb-v2.dtb",
 };
 
 const char *kernel_names[] = {
@@ -461,7 +462,7 @@ static int modify_bootargs(struct config *cfg)
 
 	fdt = (void *)cfg->dtb.addr;
 	ramfs = (void*)cfg->ramfs.addr;
-	sprintf(append, "root=/dev/ram0 rw initrd=0x%lx,32M", (unsigned long)ramfs);
+	sprintf(append, "root=/dev/ram0 nvme_core.io_timeout=240 pcie_ports=compat pcie_aspm=off rw initrd=0x%lx,32M", (unsigned long)ramfs);
 
 	node = fdt_path_offset(fdt, "/chosen");
 	if (node < 0) {
@@ -482,7 +483,7 @@ static int modify_bootargs(struct config *cfg)
 		sprintf(bootargs, "%s %s", (char*)prop->data, append);
 	} else {
 		sprintf(bootargs,
-			"console=ttyS0,115200 earlycon root=/dev/ram0 rw initrd=0x%lx,32M",
+			"console=ttyS0,115200 earlycon root=/dev/ram0 nvme_core.io_timeout=240 pcie_ports=compat pcie_aspm=off rw initrd=0x%lx,32M",
 			(unsigned long)ramfs);
 	}
 	ret = fdt_setprop_string(fdt, node, "bootargs", bootargs);
@@ -550,7 +551,9 @@ static void modify_dtb(struct config *cfg)
 	merge_dtbs(cfg);
 
 	modify_ddr_node(cfg);
+#ifdef USE_LINUX_BOOT
 	modify_bootargs(cfg);
+#endif
 
 	modify_cpu_node(cfg);
 	modify_eth_node(cfg);
