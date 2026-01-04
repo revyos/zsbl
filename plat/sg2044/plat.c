@@ -321,7 +321,7 @@ static void show_config(struct config *cfg)
 	pr_info("\n");
 }
 
-/* #define USE_LINUX_BOOT */
+#define USE_LINUX_BOOT
 
 extern unsigned long __ld_program_start[0];
 
@@ -413,13 +413,13 @@ static void config_init(struct config *cfg)
 
 	cfg->sbi.name = "fw_dynamic.bin";
 	cfg->sbi.addr = ram_base + OPENSBI_OFFSET;
-	cfg->dtb.name = NULL;
+	cfg->dtb.name = "sg2044-sophgo-srd3-10.dtb";
 	cfg->dtb.addr = ram_base + DEVICETREE_OFFSET;
-	cfg->dtbo.name = "sg2044-evb.dtbo";
+	cfg->dtbo.name = NULL;
 	cfg->dtbo.addr = ram_base + DEVICETREE_OVERLAY_OFFSET;
 #ifdef USE_LINUX_BOOT
 	cfg->kernel.name = "riscv64_Image";
-	cfg->ramfs.name = "initrd";
+	cfg->ramfs.name = "initrd.img";
 	cfg->ramfs.addr = ram_base + RAMFS_OFFSET;
 #else
 	cfg->kernel.name = "SG2044.fd";
@@ -589,37 +589,64 @@ static int modify_initramfs(struct config *cfg)
 
 static int modify_bootargs(struct config *cfg)
 {
-	void *fdt;
+	struct fdt_property *prop;
+	void *fdt, *ramfs;
 	int node;
+	int oldlen;
 	int ret;
 
-	if (!cfg->bootargs)
-		return 0;
+	char bootargs[256] = {0};
+	char append[128] = {0};
 
 	fdt = (void *)cfg->dtb.addr;
+	ramfs = (void*)cfg->ramfs.addr;
+	sprintf(append, "root=/dev/ram0 no5lvl nvme_core.io_timeout=240 pcie_aspm=off rw initrd=0x%lx,32M", (unsigned long)ramfs);
 
-	node = of_get_chosen(fdt);
-	if (node < 0)
-		return node;
-
-	ret = fdt_setprop_string(fdt, node, "bootargs", cfg->bootargs);
-	if (ret < 0) {
-		pr_err("fdt: failed to set bootargs, error[%d]\n", ret);
-		return -1;
+	node = fdt_path_offset(fdt, "/chosen");
+	if (node < 0) {
+		node = fdt_path_offset(fdt, "/");
+		node = fdt_add_subnode(fdt, node, "chosen");
+		if (node < 0) {
+			pr_err("fdt: create /chosen failed, error[%d]\n", node);
+			return -1;
+		}
 	}
 
-	return 0;
+	prop = fdt_get_property_w(fdt, node, "bootargs", &oldlen);
+	if (prop) {
+		if (oldlen > sizeof(bootargs)-strlen(append)-1) {
+			pr_err("fdt: old bootargs is too large\n");
+			return -1;
+		}
+		sprintf(bootargs, "%s %s", (char*)prop->data, append);
+	} else {
+		sprintf(bootargs,
+			"console=ttyS1,115200 earlycon root=/dev/ram0 no5lvl nvme_core.io_timeout=240 pcie_aspm=off rw initrd=0x%lx,32M",
+			(unsigned long)ramfs);
+	}
+	ret = fdt_setprop_string(fdt, node, "bootargs", bootargs);
+
+	return ret;
 }
 
 static void modify_dtb(struct config *cfg)
 {
-	load_dtbs(cfg);
-	merge_dtbs(cfg);
+	resize_dtb(cfg, 4096);
+	// load_dtbs(cfg);
+	(void)(load_dtbs);
+	// merge_dtbs(cfg);
+	(void)(merge_dtbs);
 
 	modify_memory_node(cfg);
-	add_cppc_node(cfg);
+	// add_cppc_node(cfg);
+	(void)(add_cppc_node);
+#ifdef USE_LINUX_BOOT
 	modify_initramfs(cfg);
 	modify_bootargs(cfg);
+#else
+	(void)(modify_initramfs);
+	(void)(modify_bootargs);
+#endif
 }
 
 int plat_main(void)
